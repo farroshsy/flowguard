@@ -9,3 +9,19 @@
 - [x] Add an exception detail view with owner, severity, remediation, due date, and retest status.
 - [x] Expand verifier tests for imported traces, malformed contracts, and mock-GRC state transitions.
 - [x] Run type checks, builds, browser interaction tests, desktop/mobile screenshots, and save a checkpoint.
+
+## Connected control platform extension
+
+- [x] Inspect the enabled full-stack capability, current database schema, and available external integration configuration.
+- [x] Add payment completion, privileged access-change, and data-reconciliation YAML contract templates to the interface.
+- [x] Add a server-side Jaeger/Tempo retrieval proxy that accepts only configured, validated endpoints and never exposes credentials to the browser.
+- [x] Persist process contracts and GRC exceptions with provenance, evidence hashes, owner, severity, due date, remediation, and retest status.
+- [x] Add database-backed saved-contract and exception history views to the FlowGuard interface.
+- [x] Document the JSON/API mapping, authentication boundary, field mapping, and rollout sequence for the separate GRC product.
+- [ ] Run an authenticated end-to-end persistence test that saves a contract, execution, and exception; verify the records appear in the history views; then checkpoint the connected release.
+
+## GRC handoff package
+
+- [x] Write a concise import note for the separate GRC project chat, including files to reuse, database tables, and integration sequence.
+- [x] Create a clean source ZIP excluding dependencies, local build artifacts, and transient logs.
+- [ ] Save a connected-control checkpoint and deliver the ZIP, import note, and checkpoint reference.
