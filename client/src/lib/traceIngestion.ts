@@ -31,6 +31,20 @@ export type ImportedTrace = {
   sourceName: string;
 };
 
+/** A deterministic portfolio fixture. It is deliberately labelled simulated and must never be presented as live telemetry. */
+export function createSimulatedPaymentFailureTrace(): ImportedTrace {
+  const traceId = "fg-sim-payment-failure-001";
+  return {
+    traceId,
+    sourceShape: "generic-json",
+    sourceName: "SIMULATED payment-failure trace — portfolio fixture, not live telemetry",
+    spans: [
+      { traceId, spanId: "sim-order-001", service: "orderservice", operation: "CreateOrder", status: "ok", startTime: 1, attributes: { "flowguard.provenance": "simulated" } },
+      { traceId, spanId: "sim-payment-002", parentSpanId: "sim-order-001", service: "paymentservice", operation: "Charge", status: "error", startTime: 2, attributes: { "flowguard.provenance": "simulated", error: "true" } },
+    ],
+  };
+}
+
 function asText(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
   if (value && typeof value === "object") {

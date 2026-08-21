@@ -25,6 +25,8 @@ import {
 import { useMemo, useState } from "react";
 import LiveTraceStudio from "@/components/LiveTraceStudio";
 import { buildGrcExport, evaluateFixture, fixtureOrder, fixtures, type AssertionStatus, type FixtureId, verdictLabel } from "@/lib/flowguard";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { startLogin } from "@/const";
 
 const statusMeta: Record<AssertionStatus, { label: string; icon: typeof Check; className: string }> = {
   PASS: { label: "Verified", icon: Check, className: "is-pass" },
@@ -44,6 +46,7 @@ function downloadJson(payload: unknown, fileName: string) {
 }
 
 export default function Home() {
+  const { isAuthenticated, user, loading } = useAuth();
   const [fixtureId, setFixtureId] = useState<FixtureId>("shipping_missing");
   const [runNumber, setRunNumber] = useState(1);
   const [replayActive, setReplayActive] = useState(false);
@@ -76,6 +79,7 @@ export default function Home() {
           <a href="#contract">Process contract</a>
           <a href="#handoff">GRC handoff</a>
         </nav>
+        {!loading && (isAuthenticated ? <span className="fg-auth-state">{user?.name ?? "Signed in"}</span> : <button className="fg-signin-button" onClick={startLogin}>Sign in to save</button>)}
         <button className="fg-export-button" onClick={() => downloadJson(exportPayload, `flowguard-${evaluation.traceId}.json`)}>
           <ArrowDownToLine size={15} /> Export evidence
         </button>

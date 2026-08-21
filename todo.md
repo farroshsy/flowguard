@@ -18,10 +18,13 @@
 - [x] Persist process contracts and GRC exceptions with provenance, evidence hashes, owner, severity, due date, remediation, and retest status.
 - [x] Add database-backed saved-contract and exception history views to the FlowGuard interface.
 - [x] Document the JSON/API mapping, authentication boundary, field mapping, and rollout sequence for the separate GRC product.
-- [ ] Run an authenticated end-to-end persistence test that saves a contract, execution, and exception; verify the records appear in the history views; then checkpoint the connected release.
+- [x] Run an authenticated end-to-end persistence test that saves a contract, execution, and exception; verify the records appear in the history views; then checkpoint the connected release.
 
 ## GRC handoff package
 
+- [x] Add a clearly visible sign-in action in the FlowGuard header and live-trace workspace.
+- [x] Diagnose and correct the OAuth callback failure for the visible sign-in actions.
+- [x] Add a clearly labelled one-click simulated trace loader for contract-to-exception demonstration without external telemetry.
 - [x] Write a concise import note for the separate GRC project chat, including files to reuse, database tables, and integration sequence.
 - [x] Create a clean source ZIP excluding dependencies, local build artifacts, and transient logs.
-- [ ] Save a connected-control checkpoint and deliver the ZIP, import note, and checkpoint reference.
+- [x] Save a connected-control checkpoint and deliver the ZIP, import note, and checkpoint reference.

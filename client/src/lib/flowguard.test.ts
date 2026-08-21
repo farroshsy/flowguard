@@ -1,7 +1,7 @@
 /** Assurance Console — verifier tests cover deterministic evidence and conservative verdict rules. */
 import { describe, expect, it } from "vitest";
 import { buildGrcExport, evaluateFixture } from "./flowguard";
-import { evaluateImportedTrace, parseProcessContract, parseTraceExport } from "./traceIngestion";
+import { createSimulatedPaymentFailureTrace, evaluateImportedTrace, parseProcessContract, parseTraceExport } from "./traceIngestion";
 
 describe("FlowGuard fixture verifier", () => {
   it("passes the complete checkout baseline", () => {
@@ -45,5 +45,14 @@ describe("FlowGuard fixture verifier", () => {
     const evaluation = evaluateImportedTrace(trace, contract);
     expect(evaluation.verdict).toBe("FAIL");
     expect(evaluation.firstFinding?.observed).toBe("span missing");
+  });
+
+  it("labels the one-click payment-failure sample as simulated and fails the payment assertion", () => {
+    const trace = createSimulatedPaymentFailureTrace();
+    const contract = parseProcessContract("process: payment-completion\nrequired:\n  - service: orderservice\n    operation: CreateOrder\n    status: ok\n  - service: paymentservice\n    operation: Charge\n    status: ok");
+    const evaluation = evaluateImportedTrace(trace, contract);
+    expect(trace.sourceName).toContain("SIMULATED");
+    expect(evaluation.verdict).toBe("FAIL");
+    expect(evaluation.firstFinding?.service).toBe("paymentservice");
   });
 });
