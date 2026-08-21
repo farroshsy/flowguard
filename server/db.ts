@@ -109,6 +109,12 @@ export async function createControlExecution(input: InsertControlExecution) {
   return Number(result[0].insertId);
 }
 
+export async function listControlExecutions(ownerId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(controlExecutions).where(eq(controlExecutions.ownerId, ownerId)).orderBy(desc(controlExecutions.executedAt));
+}
+
 export async function listGrcExceptions(ownerId: number) {
   const db = await getDb();
   if (!db) return [];

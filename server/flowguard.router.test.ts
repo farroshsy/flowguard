@@ -16,4 +16,9 @@ describe("FlowGuard tRPC boundaries", () => {
     const caller = appRouter.createCaller(anonymousContext());
     await expect(caller.flowguard.listContracts()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("requires an authenticated user before reading execution analytics", async () => {
+    const caller = appRouter.createCaller(anonymousContext());
+    await expect(caller.flowguard.listExecutions()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

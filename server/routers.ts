@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { createControlContract, createControlExecution, createGrcException, listControlContracts, listGrcExceptions, updateGrcException } from "./db";
+import { createControlContract, createControlExecution, createGrcException, listControlContracts, listControlExecutions, listGrcExceptions, updateGrcException } from "./db";
 import { buildTraceQueryUrl, getTraceBackendConfig } from "./traceProxy";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -25,6 +25,7 @@ export const appRouter = router({
   }),
   flowguard: router({
     listContracts: protectedProcedure.query(({ ctx }) => listControlContracts(ctx.user.id)),
+    listExecutions: protectedProcedure.query(({ ctx }) => listControlExecutions(ctx.user.id)),
     saveContract: protectedProcedure.input(contractInput).mutation(async ({ ctx, input }) => ({ id: await createControlContract({ ownerId: ctx.user.id, ...input }) })),
     listExceptions: protectedProcedure.query(({ ctx }) => listGrcExceptions(ctx.user.id)),
     saveExecution: protectedProcedure.input(executionInput).mutation(async ({ ctx, input }) => ({ id: await createControlExecution({ ...input, ownerId: ctx.user.id, finding: input.finding as object | null, assertions: input.assertions as object }) })),

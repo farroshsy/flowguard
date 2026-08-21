@@ -28,3 +28,12 @@
 - [x] Write a concise import note for the separate GRC project chat, including files to reuse, database tables, and integration sequence.
 - [x] Create a clean source ZIP excluding dependencies, local build artifacts, and transient logs.
 - [x] Save a connected-control checkpoint and deliver the ZIP, import note, and checkpoint reference.
+
+## Evidence dashboard and reporting extension
+
+- [x] Add authenticated dashboard data for execution verdicts and linked GRC exceptions grouped over time.
+- [x] Build Recharts success-rate and linked-exception-over-time visualizations using saved FlowGuard records.
+- [x] Add a simulated-trace loading progress indicator plus clear success and error toast feedback.
+- [x] Add downloadable CSV reports for execution evidence and GRC exception history.
+- [x] Add a downloadable PDF report containing the same execution evidence and exception history.
+- [x] Write tests, verify desktop and mobile rendering, and save a checkpoint for the enhancement.
