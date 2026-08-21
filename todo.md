@@ -37,3 +37,11 @@
 - [x] Add downloadable CSV reports for execution evidence and GRC exception history.
 - [x] Add a downloadable PDF report containing the same execution evidence and exception history.
 - [x] Write tests, verify desktop and mobile rendering, and save a checkpoint for the enhancement.
+
+## Granular analysis and compliance export extension
+
+- [x] Add date-range, control-key, and verdict filters that recalculate dashboard metrics and charts from owner-scoped evidence.
+- [x] Add a remediation-aging chart based on exception due dates, including overdue and upcoming categories.
+- [x] Map exported execution and exception fields to transparent BI/OJK and ISO 27001 evidence-reference columns.
+- [x] Update CSV and PDF exports with the compliance evidence mappings and an interpretation note.
+- [x] Write tests, verify responsive filter and chart behavior, and save a checkpoint for the extension.

@@ -47,7 +47,28 @@ export type EvidenceDashboardSummary = {
   successRate: number;
   linkedExceptions: number;
   openExceptions: number;
+  overdueExceptions: number;
   timeline: EvidenceTimelinePoint[];
+};
+
+export type EvidenceFilters = {
+  startDate: string;
+  endDate: string;
+  controlKey: string;
+  verdict: "" | ExecutionRecord["verdict"];
+};
+
+export const emptyEvidenceFilters: EvidenceFilters = { startDate: "", endDate: "", controlKey: "", verdict: "" };
+
+export type RemediationAgingPoint = {
+  bucket: "Overdue" | "Due ≤7d" | "Due 8–30d" | "Due >30d" | "No due date";
+  count: number;
+};
+
+export type ComplianceEvidenceMapping = {
+  biOjkEvidenceReference: string;
+  iso27001EvidenceReference: string;
+  interpretationNote: string;
 };
 
 function toDateKey(value: Date | string) {
@@ -58,6 +79,83 @@ function toDateKey(value: Date | string) {
 function toDisplayDate(dateKey: string) {
   if (dateKey === "Unknown date") return dateKey;
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${dateKey}T00:00:00Z`));
+}
+
+function isWithinDateRange(value: Date | string, startDate: string, endDate: string) {
+  if (!startDate && !endDate) return true;
+  const key = toDateKey(value);
+  if (key === "Unknown date") return false;
+  return (!startDate || key >= startDate) && (!endDate || key <= endDate);
+}
+
+export function filterEvidence(executions: ExecutionRecord[], exceptions: ExceptionRecord[], filters: EvidenceFilters) {
+  const filteredExecutions = executions.filter(execution => {
+    const matchesControl = !filters.controlKey || execution.controlKey === filters.controlKey;
+    const matchesVerdict = !filters.verdict || execution.verdict === filters.verdict;
+    return matchesControl && matchesVerdict && isWithinDateRange(execution.executedAt, filters.startDate, filters.endDate);
+  });
+  const selectedExecutionIds = new Set(filteredExecutions.map(execution => execution.id));
+  const filteredExceptions = exceptions.filter(exception => {
+    const matchesControl = !filters.controlKey || exception.controlKey === filters.controlKey;
+    const matchesDate = isWithinDateRange(exception.createdAt, filters.startDate, filters.endDate);
+    const matchesVerdict = !filters.verdict || selectedExecutionIds.has(exception.executionId);
+    return matchesControl && matchesDate && matchesVerdict;
+  });
+  return { executions: filteredExecutions, exceptions: filteredExceptions };
+}
+
+export function buildRemediationAging(exceptions: ExceptionRecord[], referenceDate = new Date()): RemediationAgingPoint[] {
+  const buckets: RemediationAgingPoint[] = [
+    { bucket: "Overdue", count: 0 },
+    { bucket: "Due ≤7d", count: 0 },
+    { bucket: "Due 8–30d", count: 0 },
+    { bucket: "Due >30d", count: 0 },
+    { bucket: "No due date", count: 0 },
+  ];
+  const today = Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate());
+  for (const exception of exceptions) {
+    if (exception.status === "CLOSED") continue;
+    if (!exception.dueAt || Number.isNaN(new Date(exception.dueAt).getTime())) {
+      buckets[4].count += 1;
+      continue;
+    }
+    const due = new Date(exception.dueAt);
+    const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+    const daysUntilDue = Math.round((dueDay - today) / 86_400_000);
+    if (daysUntilDue < 0) buckets[0].count += 1;
+    else if (daysUntilDue <= 7) buckets[1].count += 1;
+    else if (daysUntilDue <= 30) buckets[2].count += 1;
+    else buckets[3].count += 1;
+  }
+  return buckets;
+}
+
+export function getComplianceEvidenceMapping(controlKey: string, recordType: "execution" | "grc_exception"): ComplianceEvidenceMapping {
+  const recordSuffix = recordType === "execution"
+    ? "Preserve the execution verdict, trace identifier, evidence hash, provenance, and timestamp as the source evidence record."
+    : "Preserve the linked execution ID, exception status, owner, due date, remediation, and retest status as the source evidence record.";
+  const interpretationNote = `This is a reviewable evidence cross-reference, not a certification or legal-compliance conclusion. ${recordSuffix}`;
+  const defaultMapping: ComplianceEvidenceMapping = {
+    biOjkEvidenceReference: "BI/OJK evidence reference: technical-control effectiveness, traceable provenance, exception remediation, and retest evidence. Link this record to the organization’s applicable Bank Indonesia or OJK requirement in its approved regulatory register.",
+    iso27001EvidenceReference: "ISO/IEC 27001:2022 evidence reference: Annex A 8.15 Logging and 8.16 Monitoring activities.",
+    interpretationNote,
+  };
+  if (controlKey === "CTRL-ACC-001") return {
+    biOjkEvidenceReference: "BI/OJK evidence reference: privileged-access change authorization, implementation trace, and auditability. Link to the organization’s selected access-management and ICT-risk obligation in its regulatory register.",
+    iso27001EvidenceReference: "ISO/IEC 27001:2022 evidence reference: Annex A 5.18 Access rights and 8.15 Logging.",
+    interpretationNote,
+  };
+  if (controlKey === "CTRL-REC-001") return {
+    biOjkEvidenceReference: "BI/OJK evidence reference: transaction-record integrity, reconciliation evidence, exception follow-up, and operational monitoring. Link to the organization’s selected payment, reporting, or ICT-risk obligation in its regulatory register.",
+    iso27001EvidenceReference: "ISO/IEC 27001:2022 evidence reference: Annex A 8.15 Logging and 8.16 Monitoring activities.",
+    interpretationNote,
+  };
+  if (controlKey === "CTRL-PAY-001") return {
+    biOjkEvidenceReference: "BI/OJK evidence reference: payment-process integrity, operational traceability, technical-control failure handling, and remediation evidence. Link to the organization’s selected payment-service and ICT-risk obligation in its regulatory register.",
+    iso27001EvidenceReference: "ISO/IEC 27001:2022 evidence reference: Annex A 8.15 Logging, 8.16 Monitoring activities, and 5.24 Information security incident management planning and preparation.",
+    interpretationNote,
+  };
+  return defaultMapping;
 }
 
 export function buildEvidenceDashboard(executions: ExecutionRecord[], exceptions: ExceptionRecord[]): EvidenceDashboardSummary {
@@ -78,9 +176,7 @@ export function buildEvidenceDashboard(executions: ExecutionRecord[], exceptions
     if (execution.verdict === "INCONCLUSIVE") point.inconclusive += 1;
   }
 
-  for (const exception of exceptions) {
-    ensurePoint(toDateKey(exception.createdAt)).linkedExceptions += 1;
-  }
+  for (const exception of exceptions) ensurePoint(toDateKey(exception.createdAt)).linkedExceptions += 1;
 
   const points = Array.from(timeline.entries())
     .sort(([left], [right]) => left.localeCompare(right))
@@ -93,11 +189,13 @@ export function buildEvidenceDashboard(executions: ExecutionRecord[], exceptions
 
   const totalExecutions = executions.length;
   const passedExecutions = executions.filter(execution => execution.verdict === "PASS").length;
+  const overdueExceptions = buildRemediationAging(exceptions).find(point => point.bucket === "Overdue")?.count ?? 0;
   return {
     totalExecutions,
     successRate: totalExecutions ? Math.round((passedExecutions / totalExecutions) * 100) : 0,
     linkedExceptions: exceptions.length,
     openExceptions: exceptions.filter(exception => exception.status !== "CLOSED").length,
+    overdueExceptions,
     timeline: points,
   };
 }
@@ -109,15 +207,15 @@ function csvCell(value: unknown) {
 }
 
 export function buildEvidenceCsv(executions: ExecutionRecord[], exceptions: ExceptionRecord[]) {
-  const headers = ["record_type", "record_id", "execution_id", "control_key", "process_or_title", "verdict_or_status", "severity", "occurred_at", "trace_id", "evidence_hash", "owner", "retest_status", "remediation", "provenance", "linked_reference"];
-  const executionRows = executions.map(execution => [
-    "execution", execution.id, "", execution.controlKey, execution.process, execution.verdict, "", execution.executedAt, execution.traceId,
-    execution.evidenceHash, "", "", execution.finding ?? "", `${execution.provenanceLabel}: ${execution.provenanceSource}`, "",
-  ]);
-  const exceptionRows = exceptions.map(exception => [
-    "grc_exception", exception.id, exception.executionId, exception.controlKey, exception.title, exception.status, exception.severity,
-    exception.createdAt, "", "", exception.ownerLabel, exception.retestStatus, exception.remediation, "", exception.externalGrcReference ?? "",
-  ]);
+  const headers = ["record_type", "record_id", "execution_id", "control_key", "process_or_title", "verdict_or_status", "severity", "occurred_at", "trace_id", "evidence_hash", "owner", "retest_status", "remediation", "provenance", "linked_reference", "bi_ojk_evidence_reference", "iso_27001_evidence_reference", "mapping_interpretation_note"];
+  const executionRows = executions.map(execution => {
+    const mapping = getComplianceEvidenceMapping(execution.controlKey, "execution");
+    return ["execution", execution.id, "", execution.controlKey, execution.process, execution.verdict, "", execution.executedAt, execution.traceId, execution.evidenceHash, "", "", execution.finding ?? "", `${execution.provenanceLabel}: ${execution.provenanceSource}`, "", mapping.biOjkEvidenceReference, mapping.iso27001EvidenceReference, mapping.interpretationNote];
+  });
+  const exceptionRows = exceptions.map(exception => {
+    const mapping = getComplianceEvidenceMapping(exception.controlKey, "grc_exception");
+    return ["grc_exception", exception.id, exception.executionId, exception.controlKey, exception.title, exception.status, exception.severity, exception.createdAt, "", "", exception.ownerLabel, exception.retestStatus, exception.remediation, "", exception.externalGrcReference ?? "", mapping.biOjkEvidenceReference, mapping.iso27001EvidenceReference, mapping.interpretationNote];
+  });
   return [headers, ...executionRows, ...exceptionRows].map(row => row.map(csvCell).join(",")).join("\n");
 }
 
@@ -187,17 +285,18 @@ export async function downloadEvidencePdf(executions: ExecutionRecord[], excepti
   doc.text("Evidence overview", margin, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  y = textLines(doc, `${summary.totalExecutions} executions · ${summary.successRate}% pass rate · ${summary.linkedExceptions} linked exceptions · ${summary.openExceptions} open or in remediation`, margin, y + 20, pageWidth - margin * 2) + 20;
+  y = textLines(doc, `${summary.totalExecutions} executions · ${summary.successRate}% pass rate · ${summary.linkedExceptions} linked exceptions · ${summary.openExceptions} open or in remediation · ${summary.overdueExceptions} overdue`, margin, y + 20, pageWidth - margin * 2) + 12;
+  y = textLines(doc, "Compliance mapping note: BI/OJK and ISO/IEC 27001:2022 labels are reviewable evidence cross-references. They do not determine regulatory applicability, certification, or legal compliance.", margin, y, pageWidth - margin * 2) + 18;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("Execution evidence", margin, y);
   y += 20;
   if (!executions.length) writeEntry("No persisted execution evidence", "Persist a FlowGuard execution to include its trace identifiers, verdict, and evidence hash in this report.");
-  executions.forEach(execution => writeEntry(
-    `FG-EXE-${execution.id} · ${execution.controlKey} · ${execution.verdict}`,
-    `Process: ${execution.process}\nExecuted: ${new Date(execution.executedAt).toLocaleString()}\nTrace: ${execution.traceId}\nEvidence hash: ${execution.evidenceHash}\nProvenance: ${execution.provenanceLabel} — ${execution.provenanceSource}`,
-  ));
+  executions.forEach(execution => {
+    const mapping = getComplianceEvidenceMapping(execution.controlKey, "execution");
+    writeEntry(`FG-EXE-${execution.id} · ${execution.controlKey} · ${execution.verdict}`, `Process: ${execution.process}\nExecuted: ${new Date(execution.executedAt).toLocaleString()}\nTrace: ${execution.traceId}\nEvidence hash: ${execution.evidenceHash}\nProvenance: ${execution.provenanceLabel} — ${execution.provenanceSource}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`);
+  });
 
   nextPage();
   doc.setFont("helvetica", "bold");
@@ -205,10 +304,10 @@ export async function downloadEvidencePdf(executions: ExecutionRecord[], excepti
   doc.text("Linked GRC exception history", margin, y);
   y += 20;
   if (!exceptions.length) writeEntry("No linked GRC exceptions", "Passing executions remain preserved as evidence records without an exception.");
-  exceptions.forEach(exception => writeEntry(
-    `EXC-${exception.id} · ${exception.controlKey} · ${exception.status}`,
-    `Title: ${exception.title}\nSeverity: ${exception.severity}\nOwner: ${exception.ownerLabel}\nRetest: ${exception.retestStatus}\nDue: ${exception.dueAt ? new Date(exception.dueAt).toLocaleDateString() : "Not assigned"}\nRemediation: ${exception.remediation}`,
-  ));
+  exceptions.forEach(exception => {
+    const mapping = getComplianceEvidenceMapping(exception.controlKey, "grc_exception");
+    writeEntry(`EXC-${exception.id} · ${exception.controlKey} · ${exception.status}`, `Title: ${exception.title}\nSeverity: ${exception.severity}\nOwner: ${exception.ownerLabel}\nRetest: ${exception.retestStatus}\nDue: ${exception.dueAt ? new Date(exception.dueAt).toLocaleDateString() : "Not assigned"}\nRemediation: ${exception.remediation}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`);
+  });
 
   doc.save(`flowguard-evidence-report-${reportDate()}.pdf`);
 }
