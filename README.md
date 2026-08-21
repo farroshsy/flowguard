@@ -6,6 +6,8 @@ FlowGuard evaluates a distributed trace against an explicit YAML process contrac
 
 The application is deliberately usable without external telemetry. Its clearly labelled simulated payment-failure trace demonstrates the complete control-to-exception workflow, while OpenTelemetry, Jaeger, and generic JSON imports remain available for later integration.
 
+![FlowGuard Assurance Console showing the theme toggle and technical-control-verification landing experience](/manus-storage/flowguard-assurance-console_f72f0d11.png)
+
 | Status | Current implementation |
 |---|---|
 | Product mode | Full-stack React, tRPC, Express, Drizzle ORM, and MySQL/TiDB application |
@@ -33,9 +35,10 @@ Risk → Control → YAML process contract → Trace execution
 | Reusable templates | Payment completion (`CTRL-PAY-001`), privileged access change (`CTRL-ACC-001`), and data reconciliation (`CTRL-REC-001`) |
 | Deterministic verification | Conservative `PASS`, `FAIL`, or `INCONCLUSIVE` outcomes with first finding, assertion detail, evidence hash, and provenance |
 | Persistence | Authenticated database storage for contracts, immutable executions, and exception/remediation records |
-| Analytics | Owner-scoped Recharts views with date, control-key, and verdict filters; execution success trends; linked-exception trends; and remediation aging |
+| Analytics | Owner-scoped Recharts views with text search, date, control-key, and verdict filters; execution success trends; linked-exception trends; and clickable remediation aging |
 | Reporting | Filtered CSV and PDF exports containing execution evidence, exception history, and transparent BI/OJK plus ISO/IEC 27001 evidence-reference labels |
 | Live telemetry boundary | Optional fail-closed Jaeger/Tempo proxy that keeps endpoint credentials on the server |
+| Viewing experience | Persisted light/dark appearance control that preserves the FlowGuard visual system |
 
 ## Self-contained demonstration
 
@@ -102,11 +105,12 @@ The dashboard is driven only by the signed-in user’s persisted FlowGuard recor
 | Filter or chart | Purpose |
 |---|---|
 | Date range | Focus an audit period, incident window, or monthly review cycle |
+| Evidence search | Find a control key, trace reference, `EXC-#` exception identifier, exception title, owner, or remediation text quickly |
 | Control key | Isolate one technical control within a GRC control catalogue |
 | Verdict | Compare `PASS`, `FAIL`, and `INCONCLUSIVE` evidence subsets |
 | Success-rate timeline | Show the pass rate by execution date |
 | Linked-exception timeline | Show when technical evidence created GRC casework |
-| Remediation-aging chart | Categorize non-closed exceptions as overdue, due within seven days, due in 8–30 days, due after 30 days, or without a due date |
+| Remediation-aging chart | Categorize non-closed exceptions as overdue, due within seven days, due in 8–30 days, due after 30 days, or without a due date; select a chart bar or aging window to inspect the exact matching exception records |
 
 CSV exports are suitable for spreadsheet or GRC-import review. PDF exports provide a readable evidence package including execution identifiers, provenance, exception lifecycle details, and the mapping disclosure.
 
@@ -169,7 +173,7 @@ The browser submits a trace identifier only. FlowGuard validates the identifier 
 
 ## Tests and verification
 
-The current suite contains **17 passing assertions** across verifier behavior, imported-trace parsing, simulated fixtures, evidence-dashboard transformations, compliance mapping, router authentication boundaries, and proxy configuration. The application has also been checked on desktop and mobile viewports.
+The current suite contains **19 passing assertions** across verifier behavior, imported-trace parsing, simulated fixtures, evidence search and remediation-aging transformations, compliance mapping, router authentication boundaries, and proxy configuration. The application has also been checked on desktop and mobile viewports.
 
 ```bash
 pnpm test
@@ -197,6 +201,7 @@ client/src/lib/traceIngestion.ts        OTLP / Jaeger / JSON ingestion and YAML 
 client/src/lib/evidenceDashboard.ts     Filters, analytics, remediation aging, compliance mappings, CSV/PDF reports
 client/src/components/LiveTraceStudio.tsx  Trace, contract, persistence, exception, and history workspace
 client/src/components/EvidenceDashboard.tsx Filterable Recharts analytics and report controls
+client/src/flowguard-theme.css           Appearance-toggle, light-mode, search, and aging-detail styling
 server/routers.ts                       tRPC procedures and access boundary
 server/traceProxy.ts                    Fail-closed server-side Jaeger/Tempo retrieval proxy
 server/db.ts                            Database helpers

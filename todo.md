@@ -56,3 +56,11 @@
 
 - [x] Write a root README covering FlowGuard’s purpose, self-contained demo, architecture, security boundaries, analytics, reports, setup, tests, and GRC handoff.
 - [x] Review the README for accuracy against the application and documentation, then checkpoint and deliver it.
+
+## Dashboard interaction and README visual extension
+
+- [x] Add an accessible light/dark appearance toggle that preserves the FlowGuard visual system and user choice.
+- [x] Add dashboard search for control keys and exception identifiers or titles, combining it with existing evidence filters.
+- [x] Make remediation-aging chart bars clickable and display the matching exception details in an accessible drill-down surface.
+- [x] Capture current product screenshots, store them as managed static assets, and add them to the README.
+- [x] Add tests, visually verify desktop and mobile interactions, and save a checkpoint for the extension.

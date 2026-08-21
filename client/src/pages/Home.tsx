@@ -18,6 +18,8 @@ import {
   Play,
   RotateCcw,
   ShieldCheck,
+  Sun,
+  Moon,
   TimerReset,
   TriangleAlert,
   X,
@@ -27,6 +29,7 @@ import LiveTraceStudio from "@/components/LiveTraceStudio";
 import { buildGrcExport, evaluateFixture, fixtureOrder, fixtures, type AssertionStatus, type FixtureId, verdictLabel } from "@/lib/flowguard";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { startLogin } from "@/const";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const statusMeta: Record<AssertionStatus, { label: string; icon: typeof Check; className: string }> = {
   PASS: { label: "Verified", icon: Check, className: "is-pass" },
@@ -47,6 +50,7 @@ function downloadJson(payload: unknown, fileName: string) {
 
 export default function Home() {
   const { isAuthenticated, user, loading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [fixtureId, setFixtureId] = useState<FixtureId>("shipping_missing");
   const [runNumber, setRunNumber] = useState(1);
   const [replayActive, setReplayActive] = useState(false);
@@ -79,6 +83,9 @@ export default function Home() {
           <a href="#contract">Process contract</a>
           <a href="#handoff">GRC handoff</a>
         </nav>
+        <button className="fg-theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} appearance`} title={`Switch to ${theme === "dark" ? "light" : "dark"} appearance`}>
+          {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}<span>{theme === "dark" ? "Light" : "Dark"}</span>
+        </button>
         {!loading && (isAuthenticated ? <span className="fg-auth-state">{user?.name ?? "Signed in"}</span> : <button className="fg-signin-button" onClick={startLogin}>Sign in to save</button>)}
         <button className="fg-export-button" onClick={() => downloadJson(exportPayload, `flowguard-${evaluation.traceId}.json`)}>
           <ArrowDownToLine size={15} /> Export evidence

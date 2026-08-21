@@ -56,14 +56,17 @@ export type EvidenceFilters = {
   endDate: string;
   controlKey: string;
   verdict: "" | ExecutionRecord["verdict"];
+  query: string;
 };
 
-export const emptyEvidenceFilters: EvidenceFilters = { startDate: "", endDate: "", controlKey: "", verdict: "" };
+export const emptyEvidenceFilters: EvidenceFilters = { startDate: "", endDate: "", controlKey: "", verdict: "", query: "" };
 
 export type RemediationAgingPoint = {
   bucket: "Overdue" | "Due ≤7d" | "Due 8–30d" | "Due >30d" | "No due date";
   count: number;
 };
+
+export type RemediationAgingBucket = RemediationAgingPoint["bucket"];
 
 export type ComplianceEvidenceMapping = {
   biOjkEvidenceReference: string;
@@ -88,20 +91,45 @@ function isWithinDateRange(value: Date | string, startDate: string, endDate: str
   return (!startDate || key >= startDate) && (!endDate || key <= endDate);
 }
 
+function includesSearchTerm(values: Array<string | number | null | undefined>, query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return true;
+  return values.some(value => String(value ?? "").toLocaleLowerCase().includes(normalizedQuery));
+}
+
 export function filterEvidence(executions: ExecutionRecord[], exceptions: ExceptionRecord[], filters: EvidenceFilters) {
   const filteredExecutions = executions.filter(execution => {
     const matchesControl = !filters.controlKey || execution.controlKey === filters.controlKey;
     const matchesVerdict = !filters.verdict || execution.verdict === filters.verdict;
-    return matchesControl && matchesVerdict && isWithinDateRange(execution.executedAt, filters.startDate, filters.endDate);
+    const matchesSearch = includesSearchTerm([execution.controlKey, execution.process, execution.traceId, execution.evidenceHash, `FG-EXE-${execution.id}`], filters.query);
+    return matchesControl && matchesVerdict && matchesSearch && isWithinDateRange(execution.executedAt, filters.startDate, filters.endDate);
   });
   const selectedExecutionIds = new Set(filteredExecutions.map(execution => execution.id));
   const filteredExceptions = exceptions.filter(exception => {
     const matchesControl = !filters.controlKey || exception.controlKey === filters.controlKey;
     const matchesDate = isWithinDateRange(exception.createdAt, filters.startDate, filters.endDate);
     const matchesVerdict = !filters.verdict || selectedExecutionIds.has(exception.executionId);
-    return matchesControl && matchesDate && matchesVerdict;
+    const matchesSearch = includesSearchTerm([exception.controlKey, exception.title, exception.ownerLabel, exception.remediation, exception.externalGrcReference, `EXC-${exception.id}`], filters.query);
+    return matchesControl && matchesDate && matchesVerdict && matchesSearch;
   });
   return { executions: filteredExecutions, exceptions: filteredExceptions };
+}
+
+export function getRemediationAgingBucket(exception: ExceptionRecord, referenceDate = new Date()): RemediationAgingBucket | null {
+  if (exception.status === "CLOSED") return null;
+  if (!exception.dueAt || Number.isNaN(new Date(exception.dueAt).getTime())) return "No due date";
+  const today = Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate());
+  const due = new Date(exception.dueAt);
+  const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+  const daysUntilDue = Math.round((dueDay - today) / 86_400_000);
+  if (daysUntilDue < 0) return "Overdue";
+  if (daysUntilDue <= 7) return "Due ≤7d";
+  if (daysUntilDue <= 30) return "Due 8–30d";
+  return "Due >30d";
+}
+
+export function getExceptionsForRemediationBucket(exceptions: ExceptionRecord[], bucket: RemediationAgingBucket, referenceDate = new Date()) {
+  return exceptions.filter(exception => getRemediationAgingBucket(exception, referenceDate) === bucket);
 }
 
 export function buildRemediationAging(exceptions: ExceptionRecord[], referenceDate = new Date()): RemediationAgingPoint[] {
@@ -112,20 +140,10 @@ export function buildRemediationAging(exceptions: ExceptionRecord[], referenceDa
     { bucket: "Due >30d", count: 0 },
     { bucket: "No due date", count: 0 },
   ];
-  const today = Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate());
   for (const exception of exceptions) {
-    if (exception.status === "CLOSED") continue;
-    if (!exception.dueAt || Number.isNaN(new Date(exception.dueAt).getTime())) {
-      buckets[4].count += 1;
-      continue;
-    }
-    const due = new Date(exception.dueAt);
-    const dueDay = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
-    const daysUntilDue = Math.round((dueDay - today) / 86_400_000);
-    if (daysUntilDue < 0) buckets[0].count += 1;
-    else if (daysUntilDue <= 7) buckets[1].count += 1;
-    else if (daysUntilDue <= 30) buckets[2].count += 1;
-    else buckets[3].count += 1;
+    const bucket = getRemediationAgingBucket(exception, referenceDate);
+    const target = buckets.find(point => point.bucket === bucket);
+    if (target) target.count += 1;
   }
   return buckets;
 }
@@ -167,7 +185,6 @@ export function buildEvidenceDashboard(executions: ExecutionRecord[], exceptions
     timeline.set(date, created);
     return created;
   };
-
   for (const execution of executions) {
     const point = ensurePoint(toDateKey(execution.executedAt));
     point.totalExecutions += 1;
@@ -175,29 +192,12 @@ export function buildEvidenceDashboard(executions: ExecutionRecord[], exceptions
     if (execution.verdict === "FAIL") point.fail += 1;
     if (execution.verdict === "INCONCLUSIVE") point.inconclusive += 1;
   }
-
   for (const exception of exceptions) ensurePoint(toDateKey(exception.createdAt)).linkedExceptions += 1;
-
-  const points = Array.from(timeline.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([date, point]) => ({
-      date,
-      label: toDisplayDate(date),
-      ...point,
-      successRate: point.totalExecutions ? Math.round((point.pass / point.totalExecutions) * 100) : 0,
-    }));
-
+  const points = Array.from(timeline.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([date, point]) => ({ date, label: toDisplayDate(date), ...point, successRate: point.totalExecutions ? Math.round((point.pass / point.totalExecutions) * 100) : 0 }));
   const totalExecutions = executions.length;
   const passedExecutions = executions.filter(execution => execution.verdict === "PASS").length;
   const overdueExceptions = buildRemediationAging(exceptions).find(point => point.bucket === "Overdue")?.count ?? 0;
-  return {
-    totalExecutions,
-    successRate: totalExecutions ? Math.round((passedExecutions / totalExecutions) * 100) : 0,
-    linkedExceptions: exceptions.length,
-    openExceptions: exceptions.filter(exception => exception.status !== "CLOSED").length,
-    overdueExceptions,
-    timeline: points,
-  };
+  return { totalExecutions, successRate: totalExecutions ? Math.round((passedExecutions / totalExecutions) * 100) : 0, linkedExceptions: exceptions.length, openExceptions: exceptions.filter(exception => exception.status !== "CLOSED").length, overdueExceptions, timeline: points };
 }
 
 function csvCell(value: unknown) {
@@ -231,9 +231,7 @@ function downloadBlob(contents: BlobPart, type: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-function reportDate() {
-  return new Date().toISOString().slice(0, 10);
-}
+function reportDate() { return new Date().toISOString().slice(0, 10); }
 
 export function downloadEvidenceCsv(executions: ExecutionRecord[], exceptions: ExceptionRecord[]) {
   downloadBlob(buildEvidenceCsv(executions, exceptions), "text/csv;charset=utf-8", `flowguard-evidence-report-${reportDate()}.csv`);
@@ -253,61 +251,15 @@ export async function downloadEvidencePdf(executions: ExecutionRecord[], excepti
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 48;
   let y = 54;
-  const nextPage = () => {
-    if (y < pageHeight - 72) return;
-    doc.addPage();
-    y = 54;
-  };
-  const writeEntry = (heading: string, detail: string) => {
-    nextPage();
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    y = textLines(doc, heading, margin, y, pageWidth - margin * 2, 13);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(73, 84, 92);
-    y = textLines(doc, detail, margin, y + 2, pageWidth - margin * 2, 13) + 8;
-    doc.setTextColor(25, 34, 40);
-  };
-
-  doc.setFillColor(19, 31, 37);
-  doc.rect(0, 0, pageWidth, 114, "F");
-  doc.setTextColor(234, 239, 235);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("FlowGuard evidence report", margin, 52);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Generated ${new Date().toLocaleString()} · Owner-scoped control evidence`, margin, 76);
-  doc.setTextColor(25, 34, 40);
-  y = 148;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("Evidence overview", margin, y);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  y = textLines(doc, `${summary.totalExecutions} executions · ${summary.successRate}% pass rate · ${summary.linkedExceptions} linked exceptions · ${summary.openExceptions} open or in remediation · ${summary.overdueExceptions} overdue`, margin, y + 20, pageWidth - margin * 2) + 12;
-  y = textLines(doc, "Compliance mapping note: BI/OJK and ISO/IEC 27001:2022 labels are reviewable evidence cross-references. They do not determine regulatory applicability, certification, or legal compliance.", margin, y, pageWidth - margin * 2) + 18;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("Execution evidence", margin, y);
-  y += 20;
+  const nextPage = () => { if (y < pageHeight - 72) return; doc.addPage(); y = 54; };
+  const writeEntry = (heading: string, detail: string) => { nextPage(); doc.setFont("helvetica", "bold"); doc.setFontSize(10); y = textLines(doc, heading, margin, y, pageWidth - margin * 2, 13); doc.setFont("helvetica", "normal"); doc.setTextColor(73, 84, 92); y = textLines(doc, detail, margin, y + 2, pageWidth - margin * 2, 13) + 8; doc.setTextColor(25, 34, 40); };
+  doc.setFillColor(19, 31, 37); doc.rect(0, 0, pageWidth, 114, "F"); doc.setTextColor(234, 239, 235); doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("FlowGuard evidence report", margin, 52); doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(`Generated ${new Date().toLocaleString()} · Owner-scoped control evidence`, margin, 76); doc.setTextColor(25, 34, 40); y = 148;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Evidence overview", margin, y); doc.setFont("helvetica", "normal"); doc.setFontSize(10); y = textLines(doc, `${summary.totalExecutions} executions · ${summary.successRate}% pass rate · ${summary.linkedExceptions} linked exceptions · ${summary.openExceptions} open or in remediation · ${summary.overdueExceptions} overdue`, margin, y + 20, pageWidth - margin * 2) + 12; y = textLines(doc, "Compliance mapping note: BI/OJK and ISO/IEC 27001:2022 labels are reviewable evidence cross-references. They do not determine regulatory applicability, certification, or legal compliance.", margin, y, pageWidth - margin * 2) + 18;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Execution evidence", margin, y); y += 20;
   if (!executions.length) writeEntry("No persisted execution evidence", "Persist a FlowGuard execution to include its trace identifiers, verdict, and evidence hash in this report.");
-  executions.forEach(execution => {
-    const mapping = getComplianceEvidenceMapping(execution.controlKey, "execution");
-    writeEntry(`FG-EXE-${execution.id} · ${execution.controlKey} · ${execution.verdict}`, `Process: ${execution.process}\nExecuted: ${new Date(execution.executedAt).toLocaleString()}\nTrace: ${execution.traceId}\nEvidence hash: ${execution.evidenceHash}\nProvenance: ${execution.provenanceLabel} — ${execution.provenanceSource}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`);
-  });
-
-  nextPage();
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text("Linked GRC exception history", margin, y);
-  y += 20;
+  executions.forEach(execution => { const mapping = getComplianceEvidenceMapping(execution.controlKey, "execution"); writeEntry(`FG-EXE-${execution.id} · ${execution.controlKey} · ${execution.verdict}`, `Process: ${execution.process}\nExecuted: ${new Date(execution.executedAt).toLocaleString()}\nTrace: ${execution.traceId}\nEvidence hash: ${execution.evidenceHash}\nProvenance: ${execution.provenanceLabel} — ${execution.provenanceSource}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`); });
+  nextPage(); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Linked GRC exception history", margin, y); y += 20;
   if (!exceptions.length) writeEntry("No linked GRC exceptions", "Passing executions remain preserved as evidence records without an exception.");
-  exceptions.forEach(exception => {
-    const mapping = getComplianceEvidenceMapping(exception.controlKey, "grc_exception");
-    writeEntry(`EXC-${exception.id} · ${exception.controlKey} · ${exception.status}`, `Title: ${exception.title}\nSeverity: ${exception.severity}\nOwner: ${exception.ownerLabel}\nRetest: ${exception.retestStatus}\nDue: ${exception.dueAt ? new Date(exception.dueAt).toLocaleDateString() : "Not assigned"}\nRemediation: ${exception.remediation}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`);
-  });
-
+  exceptions.forEach(exception => { const mapping = getComplianceEvidenceMapping(exception.controlKey, "grc_exception"); writeEntry(`EXC-${exception.id} · ${exception.controlKey} · ${exception.status}`, `Title: ${exception.title}\nSeverity: ${exception.severity}\nOwner: ${exception.ownerLabel}\nRetest: ${exception.retestStatus}\nDue: ${exception.dueAt ? new Date(exception.dueAt).toLocaleDateString() : "Not assigned"}\nRemediation: ${exception.remediation}\nBI/OJK: ${mapping.biOjkEvidenceReference}\nISO: ${mapping.iso27001EvidenceReference}`); });
   doc.save(`flowguard-evidence-report-${reportDate()}.pdf`);
 }
