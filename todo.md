@@ -51,3 +51,8 @@
 - [x] Update the GRC import note for dashboard filters, remediation aging, and BI/OJK plus ISO 27001 export mappings.
 - [x] Regenerate and validate the clean FlowGuard source ZIP with all current files and no dependencies, build output, logs, or environment files.
 - [x] Deliver the refreshed ZIP, import note, and latest checkpoint reference.
+
+## Portfolio README
+
+- [x] Write a root README covering FlowGuard’s purpose, self-contained demo, architecture, security boundaries, analytics, reports, setup, tests, and GRC handoff.
+- [x] Review the README for accuracy against the application and documentation, then checkpoint and deliver it.
