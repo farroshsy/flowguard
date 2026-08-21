@@ -45,3 +45,9 @@
 - [x] Map exported execution and exception fields to transparent BI/OJK and ISO 27001 evidence-reference columns.
 - [x] Update CSV and PDF exports with the compliance evidence mappings and an interpretation note.
 - [x] Write tests, verify responsive filter and chart behavior, and save a checkpoint for the extension.
+
+## Refreshed GRC handoff package
+
+- [x] Update the GRC import note for dashboard filters, remediation aging, and BI/OJK plus ISO 27001 export mappings.
+- [x] Regenerate and validate the clean FlowGuard source ZIP with all current files and no dependencies, build output, logs, or environment files.
+- [x] Deliver the refreshed ZIP, import note, and latest checkpoint reference.
