@@ -64,3 +64,9 @@
 - [x] Make remediation-aging chart bars clickable and display the matching exception details in an accessible drill-down surface.
 - [x] Capture current product screenshots, store them as managed static assets, and add them to the README.
 - [x] Add tests, visually verify desktop and mobile interactions, and save a checkpoint for the extension.
+
+## Current GRC handoff refresh
+
+- [x] Update the GRC import note for the persisted appearance toggle, evidence search, remediation-aging drill-down, and README screenshot.
+- [x] Regenerate and validate the clean source ZIP with the latest interaction, asset, and documentation files.
+- [x] Checkpoint and deliver the updated ZIP, import note, and current FlowGuard version reference.

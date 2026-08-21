@@ -20,9 +20,11 @@ Use a **single-product portfolio demo** first. Import the FlowGuard verifier, te
 |---|---|---|
 | `client/src/lib/traceIngestion.ts` | Yes | OTLP, Jaeger, and generic JSON export parsing plus conservative contract evaluation. |
 | `client/src/lib/flowguard.ts` | Yes | Fixture mode, evidence hash, normalized execution model, and JSON handoff shape. |
-| `client/src/lib/evidenceDashboard.ts` | Yes | Date, control-key, and verdict filtering; dashboard aggregation; remediation-aging buckets; CSV/PDF generators; and explicit compliance evidence cross-references. |
+| `client/src/lib/evidenceDashboard.ts` | Yes | Text search; date, control-key, and verdict filtering; dashboard aggregation; remediation-aging buckets and record lookup; CSV/PDF generators; and explicit compliance evidence cross-references. |
 | `client/src/components/LiveTraceStudio.tsx` | Adapt | Control templates, YAML editor, trace import, verifier result, persistence actions, and history views. |
-| `client/src/components/EvidenceDashboard.tsx` | Adapt | Recharts timelines, filter controls, remediation-aging chart, report actions, and compliance-mapping disclosure. |
+| `client/src/components/EvidenceDashboard.tsx` | Adapt | Recharts timelines, text-search and filter controls, report actions, clickable remediation-aging windows, and an accessible exception-detail dialog. |
+| `client/src/contexts/ThemeContext.tsx` and `client/src/flowguard-theme.css` | Adapt | Persisted light/dark appearance choice, light-mode surface tokens, and dashboard interaction styling. |
+| `README.md` | Read | Portfolio overview, self-contained demonstration, setup and test commands, plus the managed product screenshot. |
 | `server/traceProxy.ts` | Yes | Fail-closed, server-side Jaeger/Tempo trace lookup. |
 | `server/routers.ts` | Merge procedures | `flowguard` tRPC router for contracts, executions, exceptions, execution history, and configured live backends. |
 | `server/db.ts` | Merge helpers | Contract, execution, and exception query helpers. |
@@ -50,14 +52,16 @@ Map FlowGuard `controlKey` values to the GRC control identifier rather than crea
 
 ## Analytics and remediation monitoring
 
-The imported dashboard should query the GRC project’s shared evidence and exception records through tRPC, then retain FlowGuard’s four analytic capabilities:
+The imported dashboard should query the GRC project’s shared evidence and exception records through tRPC, then retain FlowGuard’s interactive analytics capabilities:
 
 | Capability | GRC portfolio use |
 |---|---|
 | Date-range, control-key, and verdict filters | Isolate a selected test window, control, or `PASS`/`FAIL`/`INCONCLUSIVE` evidence subset without changing source records. |
+| Evidence search | Find matching control keys, trace references, `EXC-#` identifiers, exception titles, owners, or remediation text without changing source records. |
 | Execution success-rate timeline | Show operating-effectiveness trends from immutable executions. |
 | Linked-exception timeline | Show when technical-control failures created GRC casework. |
-| Remediation-aging chart | Categorize non-closed exceptions as overdue, due within seven days, due in 8–30 days, due after 30 days, or missing a due date. |
+| Remediation-aging chart and drill-down | Categorize non-closed exceptions as overdue, due within seven days, due in 8–30 days, due after 30 days, or missing a due date; selecting a bar or aging window opens the exact matching exception records. |
+| Appearance preference | Preserve the user’s selected light/dark view in local storage while retaining the accessibility and information hierarchy of the assurance console. |
 
 ## Compliance evidence mapping boundary
 
@@ -67,7 +71,7 @@ Use the GRC project’s regulatory register as the source of truth for organizat
 
 ## Required integration sequence
 
-First merge the schema and apply a migration. Then merge the `flowguard` router and database helpers. Next, add a GRC case-study page that selects one control, imports a trace, runs the YAML contract, and displays the execution evidence. Add the analytics component to the portfolio dashboard and point it to the shared control, evidence, and remediation records. Finally, render a failed outcome in the existing GRC exception/remediation dashboard and test a filtered export.
+First merge the schema and apply a migration. Then merge the `flowguard` router and database helpers. Next, add a GRC case-study page that selects one control, imports a trace, runs the YAML contract, and displays the execution evidence. Add the analytics component to the portfolio dashboard and point it to the shared control, evidence, and remediation records. Preserve the text search, visible aging-window drill-down, and persisted light/dark preference. Finally, render a failed outcome in the existing GRC exception/remediation dashboard and test a filtered export.
 
 The GRC product should display FlowGuard records as **machine-generated technical evidence**. Preserve `traceId`, `evidenceHash`, `provenanceLabel`, `provenanceSource`, first finding, exception owner, due date, remediation, and retest status. Do not re-label a simulated fixture as live production telemetry.
 
@@ -90,9 +94,10 @@ The user does not need to configure a backend for the portfolio’s first versio
 2. Read the GRC project’s schema and identify its control, evidence, issue, remediation, regulatory-register, and case-study tables.
 3. Merge FlowGuard’s tables and field mappings without duplicating existing GRC entities.
 4. Integrate `CTRL-PAY-001` into the Fintech Risk Assessment case study first.
-5. Bring in `EvidenceDashboard.tsx` and map its tRPC inputs to shared records; retain the filter and remediation-aging logic.
+5. Bring in `EvidenceDashboard.tsx` and map its tRPC inputs to shared records; retain the text search, filter, remediation-aging, and aging-window drill-down logic.
 6. Add a GRC regulatory-register mapping layer that assigns approved BI/OJK obligation IDs to the FlowGuard control keys.
-7. Test the complete risk-to-retest flow and filtered CSV/PDF evidence export using explicitly labelled simulated data before adding live telemetry.
+7. Enable the existing `ThemeProvider` preference control and retain `flowguard-theme.css` so the shared dashboard supports an accessible persisted light/dark choice.
+8. Test the complete risk-to-retest flow, aging-window detail dialog, and filtered CSV/PDF evidence export using explicitly labelled simulated data before adding live telemetry.
 
 ## References
 
