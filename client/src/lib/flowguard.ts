@@ -38,6 +38,15 @@ export type Evaluation = Fixture & {
   controlKey: string;
   process: string;
   contractVersion: string;
+  environment: string;
+  provenanceLabel: "Simulated Case Study" | "Imported Trace Export";
+  provenanceSource: string;
+};
+
+export type ControlExecution = Pick<Evaluation, "verdict" | "firstFinding" | "evidenceHash" | "controlKey" | "process" | "contractVersion" | "assertions" | "traceId" | "durationMs" | "runAt"> & {
+  environment: string;
+  provenanceLabel: "Simulated Case Study" | "Imported Trace Export";
+  provenanceSource: string;
 };
 
 const common = {
@@ -167,10 +176,13 @@ export function evaluateFixture(fixtureId: FixtureId): Evaluation {
     controlKey: "CTRL-APP-001",
     process: "checkout",
     contractVersion: "checkout-v1.0.0",
+    environment: "otel-demo-local-fixture",
+    provenanceLabel: "Simulated Case Study",
+    provenanceSource: "OpenTelemetry Astronomy Shop checkout fixture",
   };
 }
 
-export function buildGrcExport(evaluation: Evaluation) {
+export function buildGrcExport(evaluation: ControlExecution) {
   return {
     schemaVersion: "flowguard.control-execution.v1",
     executionId: `fg-${evaluation.traceId}`,
@@ -178,14 +190,14 @@ export function buildGrcExport(evaluation: Evaluation) {
     process: evaluation.process,
     verdict: evaluation.verdict,
     runAt: evaluation.runAt,
-    environment: "otel-demo-local-fixture",
+    environment: evaluation.environment,
     contractVersion: evaluation.contractVersion,
     traceId: evaluation.traceId,
     durationMs: evaluation.durationMs,
     evidenceHash: evaluation.evidenceHash,
     provenance: {
-      label: "Simulated Case Study",
-      source: "OpenTelemetry Astronomy Shop checkout fixture",
+      label: evaluation.provenanceLabel,
+      source: evaluation.provenanceSource,
       note: "This result demonstrates a technical control test and does not by itself prove regulatory compliance.",
     },
     assertions: evaluation.assertions.map(assertion => ({

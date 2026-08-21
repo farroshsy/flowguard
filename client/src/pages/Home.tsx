@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import LiveTraceStudio from "@/components/LiveTraceStudio";
 import { buildGrcExport, evaluateFixture, fixtureOrder, fixtures, type AssertionStatus, type FixtureId, verdictLabel } from "@/lib/flowguard";
 
 const statusMeta: Record<AssertionStatus, { label: string; icon: typeof Check; className: string }> = {
@@ -259,6 +260,8 @@ export default function Home() {
                 <div className="fg-proof-points"><span><ClipboardCheck size={16} /> Process contract</span><span><TimerReset size={16} /> Deterministic fixture</span><span><DatabaseZap size={16} /> Evidence export</span></div>
               </div>
             </section>
+
+            <LiveTraceStudio />
           </div>
         </section>
       </main>
