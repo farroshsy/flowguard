@@ -70,3 +70,12 @@
 - [x] Update the GRC import note for the persisted appearance toggle, evidence search, remediation-aging drill-down, and README screenshot.
 - [x] Regenerate and validate the clean source ZIP with the latest interaction, asset, and documentation files.
 - [x] Checkpoint and deliver the updated ZIP, import note, and current FlowGuard version reference.
+
+## Principal architecture review and modularization
+
+- [x] Review the current FlowGuard architecture, module boundaries, testing seams, and scalability or maintainability risks.
+- [x] Document upgrade alternatives, their advantages and disadvantages, and the rationale for the selected improvement.
+- [x] Refactor the selected FlowGuard domain boundary into a modular architecture without changing user-visible behavior.
+- [x] Add focused regression coverage for the refactored domain boundary and its tRPC integration.
+- [x] Refresh the README with the architecture, decision record, and updated project layout.
+- [x] Verify the build and responsive experience, then checkpoint and deliver the architecture upgrade.

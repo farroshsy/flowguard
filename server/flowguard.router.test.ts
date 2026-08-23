@@ -21,4 +21,20 @@ describe("FlowGuard tRPC boundaries", () => {
     const caller = appRouter.createCaller(anonymousContext());
     await expect(caller.flowguard.listExecutions()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("requires an authenticated user before persisting a normalized control execution", async () => {
+    const caller = appRouter.createCaller(anonymousContext());
+    await expect(caller.flowguard.saveExecution({
+      controlKey: "CTRL-PAY-001",
+      process: "payment-completion",
+      verdict: "FAIL",
+      traceId: "trace-regression-001",
+      evidenceHash: "evidence-regression-001",
+      provenanceLabel: "Portfolio fixture",
+      provenanceSource: "Simulated payment failure",
+      finding: null,
+      assertions: [],
+      executedAt: new Date("2026-08-20T12:00:00Z"),
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

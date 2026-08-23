@@ -13,7 +13,7 @@ The application is deliberately usable without external telemetry. Its clearly l
 | Product mode | Full-stack React, tRPC, Express, Drizzle ORM, and MySQL/TiDB application |
 | Authentication | Manus OAuth guards persisted contracts, executions, exceptions, analytics, and reports |
 | Demo mode | Self-contained simulated payment-failure trace; no Jaeger or Tempo required |
-| Verification | 17 Vitest assertions cover verifier logic, dashboard data transformations, and router boundaries |
+| Verification | 22 Vitest assertions cover verifier logic, studio-domain mappings, dashboard data transformations, proxy rules, and router boundaries |
 | GRC handoff | See [`HANDOFF-TO-GRC.md`](./HANDOFF-TO-GRC.md) for the clean integration sequence |
 
 ## The problem it solves
@@ -59,8 +59,8 @@ The recommended portfolio walkthrough does not require a Jaeger or Tempo deploym
 ```text
 ┌──────────────────────────────── Browser ────────────────────────────────┐
 │ React UI                                                                  │
-│  • YAML contract editor  • trace import  • evidence dashboard             │
-│  • Recharts filters/aging • CSV/PDF downloads • session-aware actions    │
+│  • feature-oriented trace studio  • YAML contract editor                  │
+│  • evidence dashboard • Recharts filters/aging • CSV/PDF downloads        │
 └───────────────┬─────────────────────────┬────────────────────────────────┘
                 │ tRPC                    │ Browser-local parsing
                 ▼                         ▼
@@ -77,6 +77,21 @@ The recommended portfolio walkthrough does not require a Jaeger or Tempo deploym
 │ grcExceptions                         │  └──────────────────────────────┘
 └──────────────────────────────────────┘
 ```
+
+## Architecture decision: modular trace studio
+
+The principal architecture review selected a **feature-oriented studio module** as the highest-value improvement. The verifier and trace-ingestion libraries were already cohesive, deterministic, and testable; the original studio component was the main maintainability hotspot because it combined template data, workflow state, tRPC mutation orchestration, and the complete UI. The refactor preserves the existing public `LiveTraceStudio` import as a compatibility facade while giving new work a clearer feature boundary.
+
+```text
+client/src/features/flowguard/studio/
+├── templates.ts          Control-template definitions
+├── model.ts              Exception draft and database-vocabulary mapping
+├── useTraceStudio.ts     Stateful workflow controller and tRPC orchestration
+├── TraceStudioView.tsx   Presentation composition and accessible event wiring
+└── index.ts              Public feature entry point
+```
+
+This layout keeps pure verification in `client/src/lib`, transport and owner-scoped persistence in the server, workflow sequencing in the controller, and visual composition in the view. It adds a few files, but reduces coupling and creates clearer seams for future GRC reuse, test coverage, and evidence-source expansion. The alternatives considered, their trade-offs, and deferred upgrades are recorded in [`docs/architecture-review.md`](./docs/architecture-review.md).
 
 ## Control templates
 
@@ -173,7 +188,7 @@ The browser submits a trace identifier only. FlowGuard validates the identifier 
 
 ## Tests and verification
 
-The current suite contains **19 passing assertions** across verifier behavior, imported-trace parsing, simulated fixtures, evidence search and remediation-aging transformations, compliance mapping, router authentication boundaries, and proxy configuration. The application has also been checked on desktop and mobile viewports.
+The current suite contains **22 passing assertions** across verifier behavior, imported-trace parsing, simulated fixtures, studio exception mapping, evidence search and remediation-aging transformations, compliance mapping, router authentication boundaries, and proxy configuration. The application has also been checked on desktop and mobile viewports.
 
 ```bash
 pnpm test
@@ -192,6 +207,7 @@ Read these documents before integrating:
 | [`HANDOFF-TO-GRC.md`](./HANDOFF-TO-GRC.md) | Clean-source handoff instructions, file reuse matrix, and suggested next-chat sequence |
 | [`docs/grc-product-integration.md`](./docs/grc-product-integration.md) | Technical API payload, security boundary, and rollout approach |
 | [`docs/compliance-mapping-notes.md`](./docs/compliance-mapping-notes.md) | BI/OJK and ISO/IEC 27001 evidence-reference boundary and sources |
+| [`docs/architecture-review.md`](./docs/architecture-review.md) | Principal review, upgrade trade-offs, selected modularization, and deferred scaling decisions |
 
 ## Repository map
 
@@ -199,7 +215,8 @@ Read these documents before integrating:
 client/src/lib/flowguard.ts             Core verifier, fixtures, evidence hash, and normalized output
 client/src/lib/traceIngestion.ts        OTLP / Jaeger / JSON ingestion and YAML contract parsing
 client/src/lib/evidenceDashboard.ts     Filters, analytics, remediation aging, compliance mappings, CSV/PDF reports
-client/src/components/LiveTraceStudio.tsx  Trace, contract, persistence, exception, and history workspace
+client/src/features/flowguard/studio/   Templates, workflow controller, exception model, and studio presentation boundary
+client/src/components/LiveTraceStudio.tsx  Compatibility facade for the feature-oriented trace studio
 client/src/components/EvidenceDashboard.tsx Filterable Recharts analytics and report controls
 client/src/flowguard-theme.css           Appearance-toggle, light-mode, search, and aging-detail styling
 server/routers.ts                       tRPC procedures and access boundary
